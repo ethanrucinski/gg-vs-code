@@ -10,7 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-        "onCommand:gg-vs-code.helloWorld"
+        "*"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
