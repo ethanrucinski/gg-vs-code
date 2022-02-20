@@ -4,38 +4,64 @@ import * as fs from 'fs';
 import * as os from 'os'
 import * as http from 'http'
 
-var steelSeriesAddress: string;
+/*
+Global SteelSeries Connection Details
+*/
+var steelSeriesHostName: string;
+var steelSeriesPort: string;
 
+/*
+Http native wrapper
+*/
 function webRequest(path: string, body: any) {
+	/*
+	Request details
+	*/
+	const requestData = JSON.stringify(body);
 	const parameters = {
-		hostname: steelSeriesAddress,
+		hostname: steelSeriesHostName,
+		port: steelSeriesPort,
 		path: path,
 		method: 'post',
+		headers: {
+			'Content-Type': 'application/json',
+			'Content-Length': requestData.length
+		}
 	}
-	console.log(parameters)
 	
+	/*
+	Perform web request
+	*/
 	return new Promise((resolve, reject) => {
-		const request = http.request(parameters, res => {
-			let chunks: any[] = [];
-			res.on('data', data => chunks.push(data));
-			res.on('end', () => {
-				const response = Buffer.concat(chunks);
-				resolve(response)
-			})
-			res.on('error', (err) => {
-				reject(err)
-			})
-		})
-		request.write(JSON.stringify(body));
-	})
+        let responseData: any[] = [];
+        const request = http.request(parameters, (res) => {
+            console.log(`Status code: ${res.statusCode}`);
+            res.on("data", (d) => {
+                responseData.push(d);
+            });
+            res.on("end", () => {
+                resolve(String(Buffer.concat(responseData)));
+            });
+        });
+        request.write(requestData);
+        request.on("error", (error) => {
+            console.error(error);
+            reject(error);
+        });
+        request.end();
+    });
 }
 
 //runs once when extension is activated
 export function activate(context: vscode.ExtensionContext) {
-	registerAppWithSteelSeries();
+	registerAppWithSteelSeries().then(() => {
+		vscode.window.showInformationMessage('Hello World from gg-vs-code!');
+		setDisplayLines("Hello world!","on SteelSeries");
+	}).catch((err) => {
+		console.error('Error connecting to steel series',err);
+	})
 
-	vscode.window.showInformationMessage('Hello World from gg-vs-code!');
-	setDisplayLines("Hello world from gg-vs-code!","on SteelSeries");
+	
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
@@ -91,69 +117,77 @@ async function sendGameEvent(eventName: string, eventData: Object) {
 }
 
 function registerAppWithSteelSeries() {
-	//get the correct steelseries config file based on operating system
-	var configFilePath: string = "";
-	if(os.platform() == "win32") {
-		configFilePath = process.env.ProgramData + "/SteelSeries/SteelSeries Engine 3/coreProps.json";
-	} else if (os.platform() == "darwin") {
-		configFilePath = "/Library/Application Support/SteelSeries Engine 3/coreProps.json";
-	} else {
-		console.error("Sorry, ggVSCode is only available on Windows and macOS")
-	}
+	return new Promise((resolve, reject) => {
+		//Retrieve SteelSeries configuration file
+		var configFilePath: string = "";
+		if(os.platform() == "win32") {
+			configFilePath = process.env.ProgramData + "/SteelSeries/SteelSeries Engine 3/coreProps.json";
+		} else if (os.platform() == "darwin") {
+			configFilePath = "/Library/Application Support/SteelSeries Engine 3/coreProps.json";
+		} else {
+			console.error("Sorry, ggVSCode is only available on Windows and macOS")
+		}
 
-	//read the config file and store the server address
-	if(configFilePath) {
-		fs.readFile(configFilePath, 'utf8' , async (err, data) => {
-			if (err) {
-				console.error(err)
-				return
-			}
-			var configJSON = JSON.parse(data);
-			steelSeriesAddress = configJSON.address;
-			console.log("Got SteelSeries server address: " + steelSeriesAddress);
+		//read the config file and store the server address
+		if(configFilePath) {
+			fs.readFile(configFilePath, 'utf8' , async (err, data) => {
+				if (err) {
+					console.error(err)
+					return
+				}
 
-			//register app details to SteelSeries GG
-			const metaData = {
-				"game": "GGVSCODE",
-				"game_display_name": "ggVSCode",
-				"developer": "Ethan Rucinski and Tyler Swett",
-				"deinitialize_timer_length_ms": 30000
-			};
+				// Parse config
+				const configJSON = JSON.parse(data);
+				const steelSeriesAddress = configJSON.address.split(":");
+				steelSeriesHostName = steelSeriesAddress[0];
+				steelSeriesPort = steelSeriesAddress[1];
+				console.log("Got SteelSeries server address: " + steelSeriesHostName + "!! Port: " + steelSeriesPort);
 
-			var metaDataResp = await webRequest('game_metadata', metaData);
-			console.log("Registered app with SteelSeries GG", metaDataResp)
-			
-			//register game event with SteelSeries GG
-			const gameEventRegistration = {
-				"game": "GGCODE",
-				"event": "SHOWMESSAGE",
-				"value_optional": true,
-				"handlers": [
-					{
-						"device-type": "screened",
-						"mode": "screen",
-						"zone": "one",
-						"datas": [
-							{
-								"lines": [
-									{
-										"has-text": true,
-										"context-frame-key": "line-one"
-									},
-									{
-										"has-text": true,
-										"context-frame-key": "line-two"
-									}
-								]
-							}
-						]
-					}
-			  ]
-			};
-			var bindGameEventResp = await webRequest('bind_game_event', gameEventRegistration);
-			console.log("Binded event to SteelSeries GG", bindGameEventResp);
+				//register app details to SteelSeries GG
+				const metaData = {
+					"game": "GGVSCODE",
+					"game_display_name": "ggVSCode",
+					"developer": "Ethan Rucinski and Tyler Swett",
+					"deinitialize_timer_length_ms": 30000
+				};
 
-			console.log('Congratulations, your extension "gg-vs-code" is now active!');
-		})
-	}
+				const metaDataResp = await webRequest('/game_metadata', metaData);
+				console.log("Registered app with SteelSeries GG", metaDataResp)
+				
+				//register game event with SteelSeries GG
+				const gameEventRegistration = {
+					"game": "GGCODE",
+					"event": "SHOWMESSAGE",
+					"value_optional": true,
+					"handlers": [
+						{
+							"device-type": "screened",
+							"mode": "screen",
+							"zone": "one",
+							"datas": [
+								{
+									"lines": [
+										{
+											"has-text": true,
+											"context-frame-key": "line-one"
+										},
+										{
+											"has-text": true,
+											"context-frame-key": "line-two"
+										}
+									]
+								}
+							]
+						}
+					]
+				};
+				var bindGameEventResp = await webRequest('/bind_game_event', gameEventRegistration);
+				console.log("Binded event to SteelSeries GG", bindGameEventResp);
+
+				console.log('Congratulations, your extension "gg-vs-code" is now active!');
+				resolve(true);
+			})
+		}
+	})
+		
 }
