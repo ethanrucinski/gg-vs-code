@@ -8,7 +8,7 @@ Global SteelSeries Connection Details
 let steelSeriesHostName: string;
 let steelSeriesPort: string;
 
-export function registerAppWithSteelSeries(allCapsAppIdentifier: string, appDisplayName: string, appDeveloper: string) {
+export function registerApp(allCapsAppIdentifier: string, appDisplayName: string, appDeveloper: string) {
     return new Promise((resolve, reject) => {
         //Retrieve SteelSeries configuration file
         let configFilePath: string = "";
@@ -104,6 +104,12 @@ export function registerAppWithSteelSeries(allCapsAppIdentifier: string, appDisp
     });
 }
 
+export function deregisterApp(allCapsAppIdentifier: string) {
+    const removeGameData = {
+        game: allCapsAppIdentifier
+    };
+    webRequest("/remove_game", removeGameData);
+}
 
 export function setDisplayLines(line1: string, line2: string) {
     const eventData = {

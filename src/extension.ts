@@ -5,16 +5,16 @@ import * as ss from "./steelseries";
 //runs once when extension is activated
 export function activate(context: vscode.ExtensionContext) {
     // Register with Steel Series
-    ss.registerAppWithSteelSeries(
-        "GGCODE",
+    ss.registerApp(
+        "GGVSCODE",
         "ggVSCode",
-        "Ethan Rucinski and Tyler Swett"
+        "Ethan Rucinski and Tyler Swe tt"
     )
         .then(() => {
             vscode.window.showInformationMessage(
                 "Hello World from gg-vs-code!"
             );
-            ss.setDisplayLines("Hello world!", "on SteelSeries");
+            ss.setDisplayLines("Hello world!", "on SteelSeries"); 
             window.registerWindow(context);
         })
         .catch((err) => {
@@ -34,4 +34,6 @@ export function activate(context: vscode.ExtensionContext) {
 // Deactivate our extension
 export function deactivate() {
     console.log("Bye bye. I hope you enjoyed GG VS Code!");
+
+	ss.deregisterApp("GGVSCODE");
 }
