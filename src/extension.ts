@@ -1,5 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+import { debug } from 'console';
 import * as vscode from 'vscode';
 
 // this method is called when your extension is activated
@@ -18,6 +19,18 @@ export function activate(context: vscode.ExtensionContext) {
 		// Display a message box to the user
 		vscode.window.showInformationMessage('Hello World from gg-vs-code!');
 	});
+
+	const workspace = vscode.workspace;
+	if (!workspace.workspaceFolders) {
+		console.error("No workspace found to analyze in gg-vs-code");
+	} else {
+		//path = workspace.workspaceFolders[0];
+		const watcher = workspace.createFileSystemWatcher(new vscode.RelativePattern(workspace.workspaceFolders[0], "*"));
+		watcher.onDidChange(uri => {
+			console.log(`File ${uri} changed`);
+		});
+				
+	}
 
 	context.subscriptions.push(disposable);
 }
